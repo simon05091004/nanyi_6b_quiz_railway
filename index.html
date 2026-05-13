@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>南一版六下 第7–9課 修辭綜合測驗</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fdf8f0; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f0e8d8; }
+    ::-webkit-scrollbar-thumb { background: #d4c5a9; border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+/* ─── 題庫 ─── */
+const QUESTIONS = [
+  { q: '「我就像是一隻吐絲自縛的幼蟲，在自己身上結了一層厚厚的繭。」這句話使用了哪一種修辭法？', a: '譬喻' },
+  { q: '「微風輕輕翻閱著畢業紀念冊，喚醒了我們沉睡的校園記憶。」這句話使用了哪一種修辭法？', a: '擬人' },
+  { q: '「一朵朵白色的蒲公英隨風起舞，一陣陣歡樂的笑聲在空曠的草地上迴盪。」這句話主要使用了哪一種修辭法？', a: '類疊' },
+  { q: '「他封閉的心房狹小得連一粒微小的沙子都容納不下。」這句話使用了哪一種修辭法？', a: '誇飾' },
+  { q: '「當我們互相交換紀念冊時，誰能不感到一陣陣難以平息的波濤呢？」這句話使用了哪一種修辭法？', a: '設問' },
+  { q: '「我們跨越圖書館的門檻，我們漫步在空曠的草地，我們仰望蔚藍的天空。」這句話使用了哪一種修辭法？', a: '排比' },
+  { q: '「他外表看似冷漠疏離，內心卻蘊含著無比的敦厚與熱情。」這句話使用了哪一種修辭法？', a: '映襯' },
+  { q: '「這段相知相惜的友誼，是我生命中彌足珍貴的無價之寶。」這句話使用了哪一種修辭法？', a: '譬喻' },
+  { q: '「幾朵白色的蒲公英在陽光下穿上綺麗的舞衣，輕盈地跳起舞來。」這句話使用了哪一種修辭法？', a: '擬人' },
+  { q: '「我們細細咀嚼著字裡行間的哲理，哲理中藏伏著高尚的德性。」這句話使用了哪一種修辭法？', a: '頂真' },
+  { q: '「他戰戰兢兢地打開那扇緊閉的心扉，深怕受到傷害。」這句話中「戰戰兢兢」使用了哪一種修辭法？', a: '類疊' },
+  { q: '「回憶如同一陣陣波濤，在我的腦海中不斷翻湧。」這句話使用了哪一種修辭法？', a: '譬喻' },
+  { q: '「蔚藍的天空展開雙臂，熱情地擁抱著每一位飛翔的蒲公英夥伴。」這句話使用了哪一種修辭法？', a: '擬人' },
+  { q: '「雖然生活在狹小擁擠的空間裡，他的心靈卻無比空曠自由。」這句話使用了哪一種修辭法？', a: '映襯' },
+  { q: '「面對摯友離去的愁緒，壓得地球都快停止了轉動。」這句話使用了哪一種修辭法？', a: '誇飾' },
+  { q: '「在這片綺麗的風景中，有誰不會停下腳步大聲誦讀呢？」這句話使用了哪一種修辭法？', a: '設問' },
+  { q: '「阿翔用憐愛化解了疏離，用殷勤打破了寂寞，用敦厚溫暖了心扉。」這句話使用了哪一種修辭法？', a: '排比' },
+  { q: '「那句溫暖的叮囑，迴盪，迴盪，一直迴盪在我的心谷。」這句話使用了哪一種修辭法？', a: '類疊' },
+  { q: '「蒲公英的種子是一把把充滿希望的小傘，帶著夢想飛向遠方。」這句話使用了哪一種修辭法？', a: '譬喻' },
+  { q: '「歲月偷偷地在紀念冊的書頁上留下了泛黃的足跡。」這句話使用了哪一種修辭法？', a: '擬人' },
+];
+
+const OPTIONS = ['譬喻','擬人','誇飾','排比','設問','類疊','映襯','頂真'];
+const TEACHER_PWD = 'teacher2025';
+const STORAGE_KEY = 'nanyi_6b_quiz_submissions';
+
+/* ─── STORAGE HELPERS (localStorage) ─── */
+function saveSubmission(record) {
+  try {
+    const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    existing.unshift(record);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function loadSubmissions() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch { return []; }
+}
+
+function clearAllSubmissions() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    return true;
+  } catch { return false; }
+}
+
+/* ─── STYLES ─── */
+const S = {
+  wrap: { fontFamily: "'Noto Sans TC', 'Microsoft JhengHei', sans-serif", background: '#fdf8f0', minHeight: '100vh', color: '#1a1a2e' },
+  header: { background: '#1a1a2e', color: '#fff', textAlign: 'center', padding: '28px 20px 20px' },
+  h1: { fontFamily: 'serif', fontSize: 'clamp(1rem, 4vw, 1.5rem)', fontWeight: 700, letterSpacing: '.06em' },
+  sub: { fontSize: '.82rem', opacity: .65, marginTop: 6 },
+  inner: { maxWidth: 820, margin: '0 auto', padding: '24px 16px 60px' },
+  card: { background: '#fff', border: '1px solid #d4c5a9', borderRadius: 10, padding: 24, marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,.1)' },
+  cardTitle: { fontFamily: 'serif', fontSize: '1rem', fontWeight: 700, color: '#c0392b', borderLeft: '4px solid #c0392b', paddingLeft: 10, marginBottom: 16 },
+  progressWrap: { position: 'sticky', top: 0, background: '#fdf8f0', borderBottom: '1px solid #d4c5a9', padding: '10px 0 8px', zIndex: 100, marginBottom: 24 },
+  progressLabel: { fontSize: '.78rem', color: '#666', marginBottom: 5 },
+  progressBar: { height: 6, background: '#d4c5a9', borderRadius: 3, overflow: 'hidden' },
+  progressFill: (pct) => ({ height: '100%', background: 'linear-gradient(90deg,#2980b9,#c0392b)', borderRadius: 3, width: pct + '%', transition: 'width .4s' }),
+  infoRow: { display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' },
+  label: { fontSize: '.9rem', whiteSpace: 'nowrap' },
+  input: { flex: '1 1 140px', padding: '8px 12px', border: '1px solid #d4c5a9', borderRadius: 6, fontSize: '.9rem', background: '#f5ede0', fontFamily: 'inherit' },
+  readingBody: { fontFamily: 'serif', lineHeight: 2.1, fontSize: '.93rem' },
+  readingNote: { fontSize: '.76rem', color: '#888', borderTop: '1px solid #d4c5a9', marginTop: 12, paddingTop: 8 },
+  legend: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  legendItem: { fontSize: '.78rem', background: '#f5ede0', border: '1px solid #d4c5a9', borderRadius: 4, padding: '3px 8px' },
+  qBlock: (answered) => ({ border: `1px solid ${answered ? '#2980b9' : '#d4c5a9'}`, borderRadius: 8, padding: '16px 18px', marginBottom: 16, background: answered ? '#f0f6ff' : '#f5ede0' }),
+  qNum: { display: 'inline-block', background: '#1a1a2e', color: '#fff', fontSize: '.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: 4, marginBottom: 8 },
+  qText: { fontSize: '.93rem', lineHeight: 1.75, marginBottom: 12 },
+  opts: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  optBtn: (sel) => ({ padding: '7px 14px', border: `1.5px solid ${sel ? '#2980b9' : '#d4c5a9'}`, background: sel ? '#2980b9' : '#fff', color: sel ? '#fff' : '#1a1a2e', borderRadius: 20, fontSize: '.83rem', cursor: 'pointer', fontWeight: sel ? 700 : 400, transition: 'all .18s', fontFamily: 'inherit' }),
+  submitBtn: { display: 'block', width: '100%', padding: '16px', background: 'linear-gradient(135deg,#c0392b,#96281b)', color: '#fff', fontSize: '1.05rem', fontWeight: 700, border: 'none', borderRadius: 10, cursor: 'pointer', letterSpacing: '.1em', marginTop: 8, fontFamily: 'inherit' },
+  scoreHero: { textAlign: 'center', padding: '32px 20px', background: 'linear-gradient(135deg,#1a1a2e,#2c3e50)', color: '#fff', borderRadius: 12, marginBottom: 24 },
+  bigScore: { fontFamily: 'serif', fontSize: '4rem', fontWeight: 700, color: '#d4a017', lineHeight: 1 },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: '.87rem' },
+  th: { background: '#1a1a2e', color: '#fff', padding: '8px 10px', textAlign: 'left', fontWeight: 600 },
+  td: { padding: '8px 10px', borderBottom: '1px solid #d4c5a9' },
+};
+
+/* ─── READING TEXT ─── */
+function ReadingText() {
+  const bold = (t) => React.createElement('b', {style:{color:'#c0392b', fontWeight:700, borderBottom:'1px dashed #c0392b'}}, t);
+  return (
+    <div style={S.card}>
+      <div style={S.cardTitle}>📄 閱讀文本：破繭而出的青春</div>
+      <div style={S.readingBody}>
+        <p style={{marginBottom:'1.1em'}}>青春的歲月裡，每個人的心中或許都曾有過一段灰暗的時光。國一剛轉學時，我緊緊關閉著自己的{bold('心扉')}，將自己囚禁在一個{bold('狹小')}的個人世界裡。面對班上的新同學，我與他們之間總帶著一種難以言喻的{bold('疏離')}感，下課時我總是一個人坐在座位上，任由無邊的{bold('寂寞')}將我吞噬。在師長眼中，我只是個{bold('循規蹈矩')}、從不惹是生非的平凡學生；在與人互動時，我總是表現得{bold('戰兢')}畏縮，深怕自己一旦說錯話就會遭到嘲笑。我就像是一隻吐絲自縛的幼蟲，在自己身上結了一層厚厚的{bold('繭')}，將外界的所有關心與善意都無情地隔絕在外。</p>
+        <p style={{marginBottom:'1.1em'}}>直到遇見了同班的阿翔，我的校園生活才發生了改變。阿翔是個性格極為{bold('敦厚')}的男孩，他待人接物總是有著恰到好處的{bold('殷勤')}與熱情，從不讓人感到有壓力。他似乎看穿了我內心的不安與脆弱，看著我時，眼神中偶爾會流露出一種如同兄長般溫暖的{bold('憐愛')}與包容。透過幾次課堂上的分組報告，我們逐漸變得{bold('熟稔')}起來。他不僅成為了我學習上最默契的{bold('夥伴')}，更在不知不覺中，走進了我的生活，成為我國中三年裡無話不談的{bold('摯友')}。</p>
+        <p style={{marginBottom:'1.1em'}}>週末時，我們常一起跨越市立圖書館那道高高的{bold('門檻')}，在那裡度過充實的下午。借完書後，我們會在午後的陽光下，漫步到圖書館外{bold('空曠')}的公園草地上。抬頭仰望，是一片無邊無際的{bold('蔚藍')}天空；微風輕輕吹過，幾朵白色的{bold('蒲公英')}隨風起舞，在陽光的折射下，那畫面真是一派{bold('綺麗')}動人的風光。我們兩人會坐在樹下，輪流出聲{bold('誦讀')}著優美的文學散文，並靜下心來細細{bold('咀嚼')}著字裡行間蘊含的人生哲理。阿翔曾告訴我，一個人高尚的{bold('德性')}往往{bold('藏伏')}於日常的細枝末節之中，唯有敞開心胸、真誠待人，才能真正看見世界的美好。</p>
+        <p style={{marginBottom:'1.1em'}}>時光飛逝，轉眼間我們迎來了鳳凰花開的畢業季。當我們互相交換{bold('紀念冊')}，鄭重地寫下對彼此的祝福時，想到即將各奔東西，我的內心不禁湧起一陣陣難以平息的{bold('波濤')}。離別前夕，阿翔重重地拍了拍我的肩膀，語重心長地{bold('叮囑')}我要勇敢面對未來的高中生活，千萬別再退縮回那個孤獨的角落。</p>
+        <p>如今，即使我們考上了不同的學校，各自朝著夢想前進，他那溫暖而充滿力量的話語依然時常在我的耳畔{bold('迴盪')}。這段相知相惜的友誼，對我而言絕對是生命中{bold('彌足珍貴')}的無價之寶。因為他，我不再是那個怯懦的少年，而是學會了破繭而出，勇敢擁抱廣闊的世界。</p>
+      </div>
+      <div style={S.readingNote}>※ 粗體紅字為第七至九課指定語詞，請仔細閱讀後回答下列選擇題。</div>
+    </div>
+  );
+}
+
+/* ─── MAIN APP ─── */
+function App() {
+  const [mode, setMode] = useState('quiz');
+  const [cls, setCls] = useState('');
+  const [num, setNum] = useState('');
+  const [userAns, setUserAns] = useState(new Array(20).fill(null));
+  const [startTime] = useState(Date.now());
+  const [result, setResult] = useState(null);
+  const [saveOk, setSaveOk] = useState(null);
+
+  const [teacherPwd, setTeacherPwd] = useState('');
+  const [submissions, setSubmissions] = useState([]);
+  const [selectedSub, setSelectedSub] = useState(null);
+  const [clearing, setClearing] = useState(false);
+
+  const answered = userAns.filter(v => v !== null).length;
+
+  function choose(idx, val) {
+    setUserAns(prev => { const a = [...prev]; a[idx] = val; return a; });
+  }
+
+  function submitQuiz() {
+    if (!cls.trim()) { alert('❗ 請輸入班級再提交。'); return; }
+    if (!num.trim()) { alert('❗ 請輸入座號再提交。'); return; }
+    const unanswered = userAns.map((v,i) => v===null ? i+1 : null).filter(Boolean);
+    if (unanswered.length > 0) {
+      alert(`❗ 第 ${unanswered.join('、')} 題尚未作答，請完成所有題目。`);
+      document.getElementById(`q${unanswered[0]-1}`)?.scrollIntoView({behavior:'smooth'});
+      return;
+    }
+    let score = 0;
+    QUESTIONS.forEach((q,i) => { if (userAns[i] === q.a) score += 5; });
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    const record = {
+      cls: cls.trim(),
+      num: num.trim(),
+      score,
+      answers: [...userAns],
+      elapsed,
+      timestamp: Date.now(),
+      timeStr: new Date().toLocaleString('zh-TW'),
+    };
+    setResult(record);
+    const ok = saveSubmission(record);
+    setSaveOk(ok);
+    setMode('result');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function enterTeacher() {
+    if (teacherPwd === TEACHER_PWD) {
+      setSubmissions(loadSubmissions());
+      setMode('teacher');
+    } else {
+      alert('密碼錯誤');
+    }
+  }
+
+  function handleClear() {
+    if (!window.confirm('確定要刪除所有作答記錄嗎？此動作無法復原。')) return;
+    setClearing(true);
+    clearAllSubmissions();
+    setSubmissions([]);
+    setClearing(false);
+  }
+
+  function exportCSV() {
+    const rows = [['班級','座號','成績','作答時間','耗時(秒)']];
+    submissions.forEach(r => rows.push([r.cls, r.num, r.score, r.timeStr, r.elapsed]));
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = '修辭測驗成績.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const mins = result ? String(Math.floor(result.elapsed/60)).padStart(2,'0') : '00';
+  const secs = result ? String(result.elapsed%60).padStart(2,'0') : '00';
+
+  /* ── QUIZ MODE ── */
+  if (mode === 'quiz') return (
+    <div style={S.wrap}>
+      <header style={S.header}>
+        <div style={S.h1}>📖 南一版六年級下學期　第 7–9 課　修辭綜合測驗</div>
+        <div style={S.sub}>閱讀文本 ＋ 20 題選擇題 ｜ 滿分 100 分</div>
+      </header>
+      <div style={S.inner}>
+        <div style={S.progressWrap}>
+          <div style={S.progressLabel}>作答進度：{answered} / 20 題</div>
+          <div style={S.progressBar}><div style={S.progressFill(answered/20*100)} /></div>
+        </div>
+
+        <div style={S.card}>
+          <div style={S.cardTitle}>學生資訊</div>
+          <div style={S.infoRow}>
+            <label style={S.label}>班級：</label>
+            <input style={S.input} value={cls} onChange={e=>setCls(e.target.value)} placeholder="例：六年三班" />
+            <label style={S.label}>座號：</label>
+            <input style={S.input} value={num} onChange={e=>setNum(e.target.value)} placeholder="例：12" />
+          </div>
+        </div>
+
+        <ReadingText />
+
+        <div style={S.card}>
+          <div style={S.cardTitle}>修辭說明</div>
+          <div style={S.legend}>
+            {['譬喻：甲像乙','擬人：物體有人的動作／感情','誇飾：故意誇大','排比：三組以上相似句式','設問：自問自答或反問','類疊：重複相同詞語','映襯：對比相反情境','頂真：前句尾接後句首'].map(t=>(
+              <span key={t} style={S.legendItem}>{t}</span>
+            ))}
+          </div>
+        </div>
+
+        <div style={{color:'#2980b9', fontFamily:'serif', fontSize:'1rem', fontWeight:700, borderLeft:'4px solid #2980b9', paddingLeft:10, marginBottom:16}}>
+          ✏️ 作答區域（共 20 題，每題 5 分）
+        </div>
+        {QUESTIONS.map((item, i) => (
+          <div key={i} id={`q${i}`} style={S.qBlock(userAns[i]!==null)}>
+            <span style={S.qNum}>第 {i+1} 題</span>
+            <p style={S.qText} dangerouslySetInnerHTML={{__html: item.q.replace(/「([^」]+)」/, '「<span style="color:#c0392b;font-weight:600">$1</span>」')}} />
+            <div style={S.opts}>
+              {OPTIONS.map(opt => (
+                <button key={opt} style={S.optBtn(userAns[i]===opt)} onClick={()=>choose(i,opt)}>{opt}</button>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <button style={S.submitBtn} onClick={submitQuiz}>📋 提交測驗並查看成績</button>
+
+        <div style={{...S.card, marginTop:32, background:'#f8f4ff', border:'1px solid #c4b5e0'}}>
+          <div style={{...S.cardTitle, color:'#6c3fc5', borderLeftColor:'#6c3fc5'}}>🔐 教師調閱入口</div>
+          <div style={S.infoRow}>
+            <label style={S.label}>教師密碼：</label>
+            <input style={{...S.input, flex:'1 1 180px'}} type="password" value={teacherPwd} onChange={e=>setTeacherPwd(e.target.value)} onKeyDown={e=>e.key==='Enter'&&enterTeacher()} placeholder="請輸入密碼" />
+            <button onClick={enterTeacher} style={{padding:'8px 18px', background:'#6c3fc5', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontWeight:700}}>進入</button>
+          </div>
+          <div style={{fontSize:'.75rem', color:'#888', marginTop:8}}>老師輸入密碼後可調閱本機作答記錄（預設密碼：teacher2025）</div>
+        </div>
+      </div>
+    </div>
+  );
+
+  /* ── RESULT MODE ── */
+  if (mode === 'result' && result) {
+    const nameStr = `${result.cls} ${result.num}號`;
+    return (
+      <div style={S.wrap}>
+        <header style={S.header}>
+          <div style={S.h1}>📖 南一版六年級下學期　第 7–9 課　修辭綜合測驗</div>
+          <div style={S.sub}>閱讀文本 ＋ 20 題選擇題 ｜ 滿分 100 分</div>
+        </header>
+        <div style={S.inner}>
+          <div style={S.scoreHero}>
+            <div style={{fontSize:'1.05rem', opacity:.8, marginBottom:6}}>{nameStr} 同學</div>
+            <div style={S.bigScore}>{result.score} 分</div>
+            <div style={{fontSize:'.83rem', opacity:.6, marginTop:6}}>滿分 100 分</div>
+            <div style={{display:'flex', gap:6, justifyContent:'center', marginTop:16, flexWrap:'wrap'}}>
+              {QUESTIONS.map((_,i) => {
+                const ok = result.answers[i] === QUESTIONS[i].a;
+                return <span key={i} title={`第${i+1}題`} style={{width:24,height:24,borderRadius:'50%',background:ok?'#27ae60':'#c0392b',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'.58rem',fontWeight:700,color:'#fff'}}>{i+1}</span>;
+              })}
+            </div>
+            <div style={{fontSize:'.78rem', opacity:.5, marginTop:10}}>完成時間：{result.timeStr}　作答耗時：{mins}:{secs}</div>
+            {saveOk === true && <div style={{marginTop:8, fontSize:'.78rem', color:'#5dde8a'}}>💾 已儲存於本機，教師可調閱</div>}
+            {saveOk === false && <div style={{marginTop:8, fontSize:'.78rem', color:'#f9a8a8'}}>⚠️ 儲存失敗，請通知老師</div>}
+          </div>
+
+          <div style={S.card}>
+            <div style={S.cardTitle}>📊 作答明細</div>
+            <div style={{overflowX:'auto'}}>
+              <table style={S.table}>
+                <thead>
+                  <tr>
+                    <th style={{...S.th, width:52}}>題號</th>
+                    <th style={S.th}>題目摘要</th>
+                    <th style={{...S.th, width:64, textAlign:'center'}}>作答</th>
+                    <th style={{...S.th, width:64, textAlign:'center'}}>正確</th>
+                    <th style={{...S.th, width:48, textAlign:'center'}}>結果</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {QUESTIONS.map((q, i) => {
+                    const ok = result.answers[i] === q.a;
+                    return (
+                      <tr key={i} style={{background: ok ? '#e8f8f0' : '#fdecea'}}>
+                        <td style={{...S.td, textAlign:'center', fontWeight:700}}>第 {i+1} 題</td>
+                        <td style={S.td}>{q.q.substring(0,30)}…</td>
+                        <td style={{...S.td, textAlign:'center'}}>{result.answers[i]}</td>
+                        <td style={{...S.td, textAlign:'center'}}>{q.a}</td>
+                        <td style={{...S.td, textAlign:'center', fontWeight:700, color: ok ? '#27ae60' : '#c0392b'}}>{ok ? '✅' : '❌'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <button onClick={()=>{ setMode('quiz'); setUserAns(new Array(20).fill(null)); setCls(''); setNum(''); setSaveOk(null); }} style={{...S.submitBtn, background:'linear-gradient(135deg,#2980b9,#1a5f7a)'}}>
+            🔄 重新作答
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── TEACHER MODE ── */
+  if (mode === 'teacher') return (
+    <div style={S.wrap}>
+      <header style={{...S.header, background:'#2d1b69'}}>
+        <div style={S.h1}>🔐 教師調閱介面｜修辭綜合測驗</div>
+        <div style={S.sub}>南一版六下 第 7–9 課｜共 {submissions.length} 筆作答記錄（本機儲存）</div>
+      </header>
+      <div style={S.inner}>
+        <div style={{...S.card, background:'#fffbe6', border:'1px solid #f0c040', fontSize:'.83rem', color:'#7a5c00', padding:'12px 16px', marginBottom:16}}>
+          ⚠️ 此版本使用 <b>瀏覽器本機儲存（localStorage）</b>，記錄僅保存在學生各自的設備上。老師需在<b>同一台電腦</b>上操作才能看到該電腦的作答記錄。如需跨裝置收集，請使用支援雲端儲存的版本。
+        </div>
+        <div style={{display:'flex', gap:10, marginBottom:20, flexWrap:'wrap'}}>
+          <button onClick={()=>setSubmissions(loadSubmissions())} style={{padding:'9px 18px', background:'#2980b9', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontWeight:700}}>
+            🔄 重新載入
+          </button>
+          <button onClick={exportCSV} disabled={submissions.length===0} style={{padding:'9px 18px', background:'#27ae60', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontWeight:700, opacity:submissions.length===0?.5:1}}>
+            📥 匯出 CSV
+          </button>
+          <button onClick={handleClear} disabled={clearing} style={{padding:'9px 18px', background:'#c0392b', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontWeight:700, opacity: clearing ? .6 : 1}}>
+            {clearing ? '刪除中…' : '🗑 清除所有記錄'}
+          </button>
+          <button onClick={()=>setMode('quiz')} style={{padding:'9px 18px', background:'#555', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit'}}>
+            ← 返回測驗
+          </button>
+        </div>
+
+        {submissions.length === 0 ? (
+          <div style={{...S.card, textAlign:'center', color:'#888', padding:40}}>尚無作答記錄</div>
+        ) : (
+          <>
+            <div style={S.card}>
+              <div style={{...S.cardTitle, color:'#2d1b69', borderLeftColor:'#2d1b69'}}>📋 全班成績一覽</div>
+              <div style={{overflowX:'auto'}}>
+                <table style={S.table}>
+                  <thead>
+                    <tr>
+                      <th style={S.th}>班級</th>
+                      <th style={{...S.th, width:60, textAlign:'center'}}>座號</th>
+                      <th style={{...S.th, width:70, textAlign:'center'}}>成績</th>
+                      <th style={{...S.th, width:80, textAlign:'center'}}>耗時</th>
+                      <th style={S.th}>作答時間</th>
+                      <th style={{...S.th, width:60, textAlign:'center'}}>明細</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {submissions.map((r, i) => {
+                      const m = String(Math.floor(r.elapsed/60)).padStart(2,'0');
+                      const s = String(r.elapsed%60).padStart(2,'0');
+                      const bg = r.score >= 80 ? '#e8f8f0' : r.score >= 60 ? '#fff9e6' : '#fdecea';
+                      return (
+                        <tr key={i} style={{background: bg}}>
+                          <td style={S.td}>{r.cls}</td>
+                          <td style={{...S.td, textAlign:'center', fontWeight:700}}>{r.num}</td>
+                          <td style={{...S.td, textAlign:'center', fontWeight:700, color: r.score>=80?'#27ae60':r.score>=60?'#d4a017':'#c0392b'}}>{r.score} 分</td>
+                          <td style={{...S.td, textAlign:'center'}}>{m}:{s}</td>
+                          <td style={S.td}>{r.timeStr}</td>
+                          <td style={{...S.td, textAlign:'center'}}>
+                            <button onClick={()=>setSelectedSub(selectedSub===i?null:i)} style={{padding:'4px 10px', background:'#6c3fc5', color:'#fff', border:'none', borderRadius:4, cursor:'pointer', fontSize:'.78rem', fontFamily:'inherit'}}>
+                              {selectedSub===i ? '收起' : '查看'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {submissions.length > 0 && (() => {
+                      const avg = Math.round(submissions.reduce((a,r)=>a+r.score,0)/submissions.length);
+                      const max = Math.max(...submissions.map(r=>r.score));
+                      const min = Math.min(...submissions.map(r=>r.score));
+                      return (
+                        <tr style={{background:'#1a1a2e', color:'#fff', fontWeight:700}}>
+                          <td style={{...S.td, borderBottom:'none', color:'#fff'}} colSpan={2}>統計（共 {submissions.length} 人）</td>
+                          <td style={{...S.td, textAlign:'center', borderBottom:'none', color:'#d4a017'}}>平均 {avg}</td>
+                          <td style={{...S.td, textAlign:'center', borderBottom:'none', color:'#5dde8a'}}>最高 {max}</td>
+                          <td style={{...S.td, textAlign:'center', borderBottom:'none', color:'#f9a8a8'}}>最低 {min}</td>
+                          <td style={{...S.td, borderBottom:'none'}} />
+                        </tr>
+                      );
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {selectedSub !== null && submissions[selectedSub] && (() => {
+              const r = submissions[selectedSub];
+              return (
+                <div style={S.card}>
+                  <div style={{...S.cardTitle, color:'#2d1b69', borderLeftColor:'#2d1b69'}}>
+                    🔍 {r.cls} {r.num}號 — 得分：{r.score} 分
+                  </div>
+                  <div style={{overflowX:'auto'}}>
+                    <table style={S.table}>
+                      <thead>
+                        <tr>
+                          <th style={{...S.th, width:52}}>題號</th>
+                          <th style={S.th}>題目</th>
+                          <th style={{...S.th, width:64, textAlign:'center'}}>作答</th>
+                          <th style={{...S.th, width:64, textAlign:'center'}}>正確</th>
+                          <th style={{...S.th, width:48, textAlign:'center'}}>結果</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {QUESTIONS.map((q, i) => {
+                          const ok = r.answers[i] === q.a;
+                          return (
+                            <tr key={i} style={{background: ok ? '#e8f8f0' : '#fdecea'}}>
+                              <td style={{...S.td, textAlign:'center', fontWeight:700}}>第 {i+1} 題</td>
+                              <td style={S.td}>{q.q.substring(0,35)}…</td>
+                              <td style={{...S.td, textAlign:'center'}}>{r.answers[i]}</td>
+                              <td style={{...S.td, textAlign:'center'}}>{q.a}</td>
+                              <td style={{...S.td, textAlign:'center', fontWeight:700, color: ok?'#27ae60':'#c0392b'}}>{ok?'✅':'❌'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  return null;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
