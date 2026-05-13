@@ -9,6 +9,47 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, push, get, remove, child }
+      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyA66tYFE5Ni0zGul-3PXRvXHL4Lge64Zvg",
+      authDomain: "nanyi-6b-7-9.firebaseapp.com",
+      databaseURL: "https://nanyi-6b-7-9-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "nanyi-6b-7-9",
+      storageBucket: "nanyi-6b-7-9.firebasestorage.app",
+      messagingSenderId: "754105977505",
+      appId: "1:754105977505:web:aa800ee00ba50e8a577ee0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getDatabase(app);
+
+    /* 掛到 window 供 Babel script 呼叫 */
+    window._fbSave = async (record) => {
+      await push(ref(db, 'submissions'), record);
+    };
+
+    window._fbLoad = async () => {
+      const snap = await get(ref(db, 'submissions'));
+      if (!snap.exists()) return [];
+      const data = snap.val();
+      return Object.entries(data)
+        .map(([key, val]) => ({ _key: key, ...val }))
+        .sort((a, b) => b.timestamp - a.timestamp);
+    };
+
+    window._fbClear = async () => {
+      await remove(ref(db, 'submissions'));
+    };
+
+    window._fbReady = true;
+  </script>
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #fdf8f0; }
@@ -49,31 +90,19 @@ const QUESTIONS = [
 
 const OPTIONS = ['譬喻','擬人','誇飾','排比','設問','類疊','映襯','頂真'];
 const TEACHER_PWD = 'teacher2025';
-const STORAGE_KEY = 'nanyi_6b_quiz_submissions';
 
-/* ─── STORAGE HELPERS (localStorage) ─── */
-function saveSubmission(record) {
-  try {
-    const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    existing.unshift(record);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
-    return true;
-  } catch (e) {
-    return false;
-  }
+/* ─── Firebase helpers（呼叫 module script 掛上的函式）─── */
+async function fbSave(record) {
+  try { await window._fbSave(record); return true; }
+  catch(e) { console.error(e); return false; }
 }
-
-function loadSubmissions() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  } catch { return []; }
+async function fbLoad() {
+  try { return await window._fbLoad(); }
+  catch(e) { console.error(e); return []; }
 }
-
-function clearAllSubmissions() {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-    return true;
-  } catch { return false; }
+async function fbClear() {
+  try { await window._fbClear(); return true; }
+  catch(e) { console.error(e); return false; }
 }
 
 /* ─── STYLES ─── */
@@ -109,7 +138,7 @@ const S = {
   td: { padding: '8px 10px', borderBottom: '1px solid #d4c5a9' },
 };
 
-/* ─── READING TEXT ─── */
+/* ─── 閱讀文本 ─── */
 function ReadingText() {
   const bold = (t) => React.createElement('b', {style:{color:'#c0392b', fontWeight:700, borderBottom:'1px dashed #c0392b'}}, t);
   return (
@@ -129,18 +158,20 @@ function ReadingText() {
 
 /* ─── MAIN APP ─── */
 function App() {
-  const [mode, setMode] = useState('quiz');
-  const [cls, setCls] = useState('');
-  const [num, setNum] = useState('');
+  const [mode, setMode]       = useState('quiz');
+  const [cls, setCls]         = useState('');
+  const [num, setNum]         = useState('');
   const [userAns, setUserAns] = useState(new Array(20).fill(null));
-  const [startTime] = useState(Date.now());
-  const [result, setResult] = useState(null);
-  const [saveOk, setSaveOk] = useState(null);
+  const [startTime]           = useState(Date.now());
+  const [result, setResult]   = useState(null);
+  const [saving, setSaving]   = useState(false);
+  const [saveOk, setSaveOk]   = useState(null);  // null | true | false
 
-  const [teacherPwd, setTeacherPwd] = useState('');
+  const [teacherPwd, setTeacherPwd]   = useState('');
   const [submissions, setSubmissions] = useState([]);
+  const [loadingRecs, setLoadingRecs] = useState(false);
   const [selectedSub, setSelectedSub] = useState(null);
-  const [clearing, setClearing] = useState(false);
+  const [clearing, setClearing]       = useState(false);
 
   const answered = userAns.filter(v => v !== null).length;
 
@@ -148,7 +179,7 @@ function App() {
     setUserAns(prev => { const a = [...prev]; a[idx] = val; return a; });
   }
 
-  function submitQuiz() {
+  async function submitQuiz() {
     if (!cls.trim()) { alert('❗ 請輸入班級再提交。'); return; }
     if (!num.trim()) { alert('❗ 請輸入座號再提交。'); return; }
     const unanswered = userAns.map((v,i) => v===null ? i+1 : null).filter(Boolean);
@@ -161,34 +192,41 @@ function App() {
     QUESTIONS.forEach((q,i) => { if (userAns[i] === q.a) score += 5; });
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     const record = {
-      cls: cls.trim(),
-      num: num.trim(),
-      score,
-      answers: [...userAns],
-      elapsed,
+      cls: cls.trim(), num: num.trim(), score,
+      answers: [...userAns], elapsed,
       timestamp: Date.now(),
       timeStr: new Date().toLocaleString('zh-TW'),
     };
     setResult(record);
-    const ok = saveSubmission(record);
-    setSaveOk(ok);
     setMode('result');
     window.scrollTo({top:0, behavior:'smooth'});
+
+    setSaving(true);
+    const ok = await fbSave(record);
+    setSaving(false);
+    setSaveOk(ok);
   }
 
   function enterTeacher() {
     if (teacherPwd === TEACHER_PWD) {
-      setSubmissions(loadSubmissions());
       setMode('teacher');
+      fetchRecords();
     } else {
       alert('密碼錯誤');
     }
   }
 
-  function handleClear() {
+  async function fetchRecords() {
+    setLoadingRecs(true);
+    const recs = await fbLoad();
+    setSubmissions(recs);
+    setLoadingRecs(false);
+  }
+
+  async function handleClear() {
     if (!window.confirm('確定要刪除所有作答記錄嗎？此動作無法復原。')) return;
     setClearing(true);
-    clearAllSubmissions();
+    await fbClear();
     setSubmissions([]);
     setClearing(false);
   }
@@ -199,14 +237,14 @@ function App() {
     const csv = rows.map(r => r.join(',')).join('\n');
     const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = '修辭測驗成績.csv'; a.click();
+    const a = document.createElement('a'); a.href=url; a.download='修辭測驗成績.csv'; a.click();
     URL.revokeObjectURL(url);
   }
 
   const mins = result ? String(Math.floor(result.elapsed/60)).padStart(2,'0') : '00';
   const secs = result ? String(result.elapsed%60).padStart(2,'0') : '00';
 
-  /* ── QUIZ MODE ── */
+  /* ══ QUIZ MODE ══ */
   if (mode === 'quiz') return (
     <div style={S.wrap}>
       <header style={S.header}>
@@ -214,6 +252,7 @@ function App() {
         <div style={S.sub}>閱讀文本 ＋ 20 題選擇題 ｜ 滿分 100 分</div>
       </header>
       <div style={S.inner}>
+
         <div style={S.progressWrap}>
           <div style={S.progressLabel}>作答進度：{answered} / 20 題</div>
           <div style={S.progressBar}><div style={S.progressFill(answered/20*100)} /></div>
@@ -243,6 +282,7 @@ function App() {
         <div style={{color:'#2980b9', fontFamily:'serif', fontSize:'1rem', fontWeight:700, borderLeft:'4px solid #2980b9', paddingLeft:10, marginBottom:16}}>
           ✏️ 作答區域（共 20 題，每題 5 分）
         </div>
+
         {QUESTIONS.map((item, i) => (
           <div key={i} id={`q${i}`} style={S.qBlock(userAns[i]!==null)}>
             <span style={S.qNum}>第 {i+1} 題</span>
@@ -257,20 +297,23 @@ function App() {
 
         <button style={S.submitBtn} onClick={submitQuiz}>📋 提交測驗並查看成績</button>
 
+        {/* 教師入口 */}
         <div style={{...S.card, marginTop:32, background:'#f8f4ff', border:'1px solid #c4b5e0'}}>
           <div style={{...S.cardTitle, color:'#6c3fc5', borderLeftColor:'#6c3fc5'}}>🔐 教師調閱入口</div>
           <div style={S.infoRow}>
             <label style={S.label}>教師密碼：</label>
-            <input style={{...S.input, flex:'1 1 180px'}} type="password" value={teacherPwd} onChange={e=>setTeacherPwd(e.target.value)} onKeyDown={e=>e.key==='Enter'&&enterTeacher()} placeholder="請輸入密碼" />
+            <input style={{...S.input, flex:'1 1 180px'}} type="password" value={teacherPwd}
+              onChange={e=>setTeacherPwd(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&enterTeacher()} placeholder="請輸入密碼" />
             <button onClick={enterTeacher} style={{padding:'8px 18px', background:'#6c3fc5', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontWeight:700}}>進入</button>
           </div>
-          <div style={{fontSize:'.75rem', color:'#888', marginTop:8}}>老師輸入密碼後可調閱本機作答記錄（預設密碼：teacher2025）</div>
+          <div style={{fontSize:'.75rem', color:'#888', marginTop:8}}>老師輸入密碼後可調閱全班作答記錄（預設密碼：teacher2025）</div>
         </div>
       </div>
     </div>
   );
 
-  /* ── RESULT MODE ── */
+  /* ══ RESULT MODE ══ */
   if (mode === 'result' && result) {
     const nameStr = `${result.cls} ${result.num}號`;
     return (
@@ -280,6 +323,7 @@ function App() {
           <div style={S.sub}>閱讀文本 ＋ 20 題選擇題 ｜ 滿分 100 分</div>
         </header>
         <div style={S.inner}>
+
           <div style={S.scoreHero}>
             <div style={{fontSize:'1.05rem', opacity:.8, marginBottom:6}}>{nameStr} 同學</div>
             <div style={S.bigScore}>{result.score} 分</div>
@@ -287,12 +331,14 @@ function App() {
             <div style={{display:'flex', gap:6, justifyContent:'center', marginTop:16, flexWrap:'wrap'}}>
               {QUESTIONS.map((_,i) => {
                 const ok = result.answers[i] === QUESTIONS[i].a;
-                return <span key={i} title={`第${i+1}題`} style={{width:24,height:24,borderRadius:'50%',background:ok?'#27ae60':'#c0392b',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'.58rem',fontWeight:700,color:'#fff'}}>{i+1}</span>;
+                return <span key={i} title={`第${i+1}題`}
+                  style={{width:24,height:24,borderRadius:'50%',background:ok?'#27ae60':'#c0392b',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'.58rem',fontWeight:700,color:'#fff'}}>{i+1}</span>;
               })}
             </div>
             <div style={{fontSize:'.78rem', opacity:.5, marginTop:10}}>完成時間：{result.timeStr}　作答耗時：{mins}:{secs}</div>
-            {saveOk === true && <div style={{marginTop:8, fontSize:'.78rem', color:'#5dde8a'}}>💾 已儲存於本機，教師可調閱</div>}
-            {saveOk === false && <div style={{marginTop:8, fontSize:'.78rem', color:'#f9a8a8'}}>⚠️ 儲存失敗，請通知老師</div>}
+            {saving && <div style={{marginTop:10, fontSize:'.82rem', color:'#a8d8ff'}}>⏳ 正在上傳至 Firebase…</div>}
+            {saveOk === true  && <div style={{marginTop:10, fontSize:'.82rem', color:'#5dde8a'}}>☁️ 已上傳雲端，老師可即時查看</div>}
+            {saveOk === false && <div style={{marginTop:10, fontSize:'.82rem', color:'#f9a8a8'}}>⚠️ 上傳失敗，請確認網路連線後通知老師</div>}
           </div>
 
           <div style={S.card}>
@@ -317,7 +363,7 @@ function App() {
                         <td style={S.td}>{q.q.substring(0,30)}…</td>
                         <td style={{...S.td, textAlign:'center'}}>{result.answers[i]}</td>
                         <td style={{...S.td, textAlign:'center'}}>{q.a}</td>
-                        <td style={{...S.td, textAlign:'center', fontWeight:700, color: ok ? '#27ae60' : '#c0392b'}}>{ok ? '✅' : '❌'}</td>
+                        <td style={{...S.td, textAlign:'center', fontWeight:700, color: ok?'#27ae60':'#c0392b'}}>{ok?'✅':'❌'}</td>
                       </tr>
                     );
                   })}
@@ -326,7 +372,8 @@ function App() {
             </div>
           </div>
 
-          <button onClick={()=>{ setMode('quiz'); setUserAns(new Array(20).fill(null)); setCls(''); setNum(''); setSaveOk(null); }} style={{...S.submitBtn, background:'linear-gradient(135deg,#2980b9,#1a5f7a)'}}>
+          <button onClick={()=>{ setMode('quiz'); setUserAns(new Array(20).fill(null)); setCls(''); setNum(''); setSaveOk(null); }}
+            style={{...S.submitBtn, background:'linear-gradient(135deg,#2980b9,#1a5f7a)'}}>
             🔄 重新作答
           </button>
         </div>
@@ -334,36 +381,40 @@ function App() {
     );
   }
 
-  /* ── TEACHER MODE ── */
+  /* ══ TEACHER MODE ══ */
   if (mode === 'teacher') return (
     <div style={S.wrap}>
       <header style={{...S.header, background:'#2d1b69'}}>
         <div style={S.h1}>🔐 教師調閱介面｜修辭綜合測驗</div>
-        <div style={S.sub}>南一版六下 第 7–9 課｜共 {submissions.length} 筆作答記錄（本機儲存）</div>
+        <div style={S.sub}>南一版六下 第 7–9 課｜共 {submissions.length} 筆作答記錄 ☁️ Firebase 雲端</div>
       </header>
       <div style={S.inner}>
-        <div style={{...S.card, background:'#fffbe6', border:'1px solid #f0c040', fontSize:'.83rem', color:'#7a5c00', padding:'12px 16px', marginBottom:16}}>
-          ⚠️ 此版本使用 <b>瀏覽器本機儲存（localStorage）</b>，記錄僅保存在學生各自的設備上。老師需在<b>同一台電腦</b>上操作才能看到該電腦的作答記錄。如需跨裝置收集，請使用支援雲端儲存的版本。
-        </div>
+
         <div style={{display:'flex', gap:10, marginBottom:20, flexWrap:'wrap'}}>
-          <button onClick={()=>setSubmissions(loadSubmissions())} style={{padding:'9px 18px', background:'#2980b9', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontWeight:700}}>
+          <button onClick={fetchRecords} style={{padding:'9px 18px', background:'#2980b9', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontWeight:700}}>
             🔄 重新載入
           </button>
-          <button onClick={exportCSV} disabled={submissions.length===0} style={{padding:'9px 18px', background:'#27ae60', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontWeight:700, opacity:submissions.length===0?.5:1}}>
+          <button onClick={exportCSV} disabled={submissions.length===0}
+            style={{padding:'9px 18px', background:'#27ae60', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontWeight:700, opacity:submissions.length===0?.5:1}}>
             📥 匯出 CSV
           </button>
-          <button onClick={handleClear} disabled={clearing} style={{padding:'9px 18px', background:'#c0392b', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontWeight:700, opacity: clearing ? .6 : 1}}>
+          <button onClick={handleClear} disabled={clearing}
+            style={{padding:'9px 18px', background:'#c0392b', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontWeight:700, opacity:clearing?.6:1}}>
             {clearing ? '刪除中…' : '🗑 清除所有記錄'}
           </button>
-          <button onClick={()=>setMode('quiz')} style={{padding:'9px 18px', background:'#555', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit'}}>
+          <button onClick={()=>setMode('quiz')}
+            style={{padding:'9px 18px', background:'#555', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit'}}>
             ← 返回測驗
           </button>
         </div>
 
-        {submissions.length === 0 ? (
+        {loadingRecs ? (
+          <div style={{textAlign:'center', padding:40, color:'#888'}}>☁️ 從 Firebase 載入中…</div>
+        ) : submissions.length === 0 ? (
           <div style={{...S.card, textAlign:'center', color:'#888', padding:40}}>尚無作答記錄</div>
         ) : (
           <>
+            {/* 成績一覽 */}
             <div style={S.card}>
               <div style={{...S.cardTitle, color:'#2d1b69', borderLeftColor:'#2d1b69'}}>📋 全班成績一覽</div>
               <div style={{overflowX:'auto'}}>
@@ -382,23 +433,25 @@ function App() {
                     {submissions.map((r, i) => {
                       const m = String(Math.floor(r.elapsed/60)).padStart(2,'0');
                       const s = String(r.elapsed%60).padStart(2,'0');
-                      const bg = r.score >= 80 ? '#e8f8f0' : r.score >= 60 ? '#fff9e6' : '#fdecea';
+                      const bg = r.score>=80?'#e8f8f0':r.score>=60?'#fff9e6':'#fdecea';
                       return (
-                        <tr key={i} style={{background: bg}}>
+                        <tr key={i} style={{background:bg}}>
                           <td style={S.td}>{r.cls}</td>
                           <td style={{...S.td, textAlign:'center', fontWeight:700}}>{r.num}</td>
-                          <td style={{...S.td, textAlign:'center', fontWeight:700, color: r.score>=80?'#27ae60':r.score>=60?'#d4a017':'#c0392b'}}>{r.score} 分</td>
+                          <td style={{...S.td, textAlign:'center', fontWeight:700, color:r.score>=80?'#27ae60':r.score>=60?'#d4a017':'#c0392b'}}>{r.score} 分</td>
                           <td style={{...S.td, textAlign:'center'}}>{m}:{s}</td>
                           <td style={S.td}>{r.timeStr}</td>
                           <td style={{...S.td, textAlign:'center'}}>
-                            <button onClick={()=>setSelectedSub(selectedSub===i?null:i)} style={{padding:'4px 10px', background:'#6c3fc5', color:'#fff', border:'none', borderRadius:4, cursor:'pointer', fontSize:'.78rem', fontFamily:'inherit'}}>
-                              {selectedSub===i ? '收起' : '查看'}
+                            <button onClick={()=>setSelectedSub(selectedSub===i?null:i)}
+                              style={{padding:'4px 10px', background:'#6c3fc5', color:'#fff', border:'none', borderRadius:4, cursor:'pointer', fontSize:'.78rem', fontFamily:'inherit'}}>
+                              {selectedSub===i?'收起':'查看'}
                             </button>
                           </td>
                         </tr>
                       );
                     })}
-                    {submissions.length > 0 && (() => {
+                    {/* 統計列 */}
+                    {(() => {
                       const avg = Math.round(submissions.reduce((a,r)=>a+r.score,0)/submissions.length);
                       const max = Math.max(...submissions.map(r=>r.score));
                       const min = Math.min(...submissions.map(r=>r.score));
@@ -417,6 +470,7 @@ function App() {
               </div>
             </div>
 
+            {/* 明細面板 */}
             {selectedSub !== null && submissions[selectedSub] && (() => {
               const r = submissions[selectedSub];
               return (
@@ -439,12 +493,12 @@ function App() {
                         {QUESTIONS.map((q, i) => {
                           const ok = r.answers[i] === q.a;
                           return (
-                            <tr key={i} style={{background: ok ? '#e8f8f0' : '#fdecea'}}>
+                            <tr key={i} style={{background: ok?'#e8f8f0':'#fdecea'}}>
                               <td style={{...S.td, textAlign:'center', fontWeight:700}}>第 {i+1} 題</td>
                               <td style={S.td}>{q.q.substring(0,35)}…</td>
                               <td style={{...S.td, textAlign:'center'}}>{r.answers[i]}</td>
                               <td style={{...S.td, textAlign:'center'}}>{q.a}</td>
-                              <td style={{...S.td, textAlign:'center', fontWeight:700, color: ok?'#27ae60':'#c0392b'}}>{ok?'✅':'❌'}</td>
+                              <td style={{...S.td, textAlign:'center', fontWeight:700, color:ok?'#27ae60':'#c0392b'}}>{ok?'✅':'❌'}</td>
                             </tr>
                           );
                         })}
