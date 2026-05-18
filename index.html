@@ -8,6 +8,8 @@
 <!-- Firebase SDK -->
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-app-compat.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-firestore-compat.min.js"></script>
+<!-- QR Code -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
@@ -151,6 +153,13 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--paper);color:var(--i
 .login-box .cancel{margin-top:8px;background:none;border:none;color:#aaa;font-size:.78rem;cursor:pointer;font-family:inherit;text-decoration:underline}
 #login-err{color:var(--accent);font-size:.8rem;margin-top:6px;min-height:18px}
 
+
+/* ── QR CARD ── */
+.qr-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:24px;box-shadow:0 2px 8px var(--shadow);text-align:center}
+.qr-card p{font-size:.85rem;color:#666;margin-bottom:12px;font-weight:500}
+.qr-card small{display:block;font-size:.7rem;color:#aaa;margin-top:10px;word-break:break-all}
+#qrbox{display:flex;justify-content:center;margin:0 auto}
+
 @media print{.no-print{display:none!important}.card{box-shadow:none;border:1px solid #ccc}body{background:#fff}}
 @media(max-width:480px){.opts button{padding:6px 10px;font-size:.78rem}.site-header h1{font-size:.95rem}}
 </style>
@@ -186,7 +195,14 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--paper);color:var(--i
       <div id="progress-bar"><div id="progress-fill"></div></div>
     </div>
 
-    <!-- 學生資訊（班級下拉＋座號，無姓名） -->
+    <!-- QR Code 掃碼進入施測 -->
+    <div class="qr-card no-print">
+      <p>📱 掃描下方 QR Code 直接進入施測</p>
+      <div id="qrbox"></div>
+      <small id="qrurl"></small>
+    </div>
+
+        <!-- 學生資訊（班級下拉＋座號，無姓名） -->
     <div class="card no-print" id="info-card">
       <div class="card-title">學生資訊</div>
       <div class="student-row">
@@ -327,12 +343,12 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--paper);color:var(--i
 //  ★★★ Firebase 設定（老師請填入您的專案設定）★★★
 // ══════════════════════════════════════════════════════
 const FB_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyC9lemHX8VEk7DiszkanLWGZjXB4TlCJKs",
+  authDomain: "math-5-6.firebaseapp.com",
+  projectId: "math-5-6",
+  storageBucket: "math-5-6.firebasestorage.app",
+  messagingSenderId: "791241827089",
+  appId: "1:791241827089:web:a23f71fe1974fa6db322b0"
 };
 
 // ★ 教師密碼（預設 teacher123，可自行修改）
@@ -696,6 +712,23 @@ function clearLocalRecs(){
 // ── 初始化 ────────────────────────────────────────────
 initFirebase();
 buildQuiz();
+
+// ── QR Code ──────────────────────────────────────────
+window.addEventListener('load', () => {
+  const url = window.location.href;
+  const urlEl = document.getElementById('qrurl');
+  if(urlEl) urlEl.textContent = url.length > 55 ? url.slice(0, 55) + '…' : url;
+  if(typeof QRCode !== 'undefined'){
+    new QRCode(document.getElementById('qrbox'), {
+      text: url,
+      width: 140,
+      height: 140,
+      colorDark: '#1a1a2e',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  }
+});
 </script>
 </body>
 </html>
